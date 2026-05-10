@@ -1,0 +1,766 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"/>
+  <meta name="theme-color" content="#185FA5"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+  <meta name="apple-mobile-web-app-title" content="Pádel"/>
+  <link rel="manifest" href="manifest.json"/>
+  <link rel="apple-touch-icon" href="icon-192.png"/>
+  <title>Marcador de Pádel</title>
+  <style>
+    :root {
+      --bg: #ffffff;
+      --bg2: #f5f5f3;
+      --bg3: #eeede8;
+      --text: #1a1a18;
+      --text2: #6b6a66;
+      --text3: #9b9a96;
+      --border: rgba(0,0,0,0.12);
+      --border2: rgba(0,0,0,0.22);
+      --blue: #185FA5;
+      --blue-light: #E6F1FB;
+      --blue-dark: #0C447C;
+      --orange: #D85A30;
+      --orange-light: #FAECE7;
+      --orange-dark: #4A1B0C;
+      --green: #1D9E75;
+      --amber: #BA7517;
+      --gold: #C8952A;
+      --gold-light: #FDF3DC;
+      --radius: 14px;
+      --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #1c1c1e;
+        --bg2: #2c2c2e;
+        --bg3: #3a3a3c;
+        --text: #f2f2f7;
+        --text2: #aeaeb2;
+        --text3: #6d6d72;
+        --border: rgba(255,255,255,0.12);
+        --border2: rgba(255,255,255,0.22);
+        --blue-light: #0c2d4a;
+        --blue-dark: #85B7EB;
+        --orange-light: #3a1a0a;
+        --orange-dark: #F09975;
+        --gold-light: #3a2a00;
+      }
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    html, body { height: 100%; background: var(--bg); color: var(--text); font-family: var(--font); touch-action: manipulation; }
+    body { padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
+
+    .app { max-width: 430px; margin: 0 auto; padding: 14px 14px 40px; }
+
+    /* Top bar */
+    .top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; flex-wrap: wrap; gap: 6px; }
+    .top-left { display: flex; align-items: center; gap: 10px; }
+    .match-title { font-size: 13px; color: var(--text2); }
+    .timer { font-size: 12px; color: var(--text3); font-variant-numeric: tabular-nums; min-width: 36px; }
+    .btn-reset { font-size: 12px; padding: 7px 16px; border-radius: 20px; border: 0.5px solid var(--border2); background: var(--bg2); color: var(--text2); cursor: pointer; }
+
+    /* Option row: golden point toggle */
+    .option-row { display: flex; align-items: center; justify-content: space-between; font-size: 12px; color: var(--text2); margin-bottom: 10px; padding: 8px 12px; border-radius: 10px; background: var(--bg2); border: 0.5px solid var(--border); }
+    .toggle { position: relative; width: 36px; height: 20px; background: var(--bg3); border-radius: 10px; cursor: pointer; border: none; flex-shrink: 0; transition: background 0.2s; outline: none; }
+    .toggle.on { background: var(--gold); }
+    .toggle::after { content: ''; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: #fff; transition: transform 0.2s; }
+    .toggle.on::after { transform: translateX(16px); }
+    .toggle:disabled { opacity: 0.4; cursor: default; }
+
+    /* Install banner */
+    .install-banner { display: none; align-items: center; justify-content: space-between; gap: 10px; background: var(--bg2); border-radius: var(--radius); border: 0.5px solid var(--border); padding: 12px 14px; margin-bottom: 12px; }
+    .install-banner.show { display: flex; }
+    .install-text { font-size: 13px; color: var(--text); line-height: 1.4; }
+    .install-text span { display: block; font-size: 11px; color: var(--text2); margin-top: 2px; }
+    .btn-install { font-size: 13px; font-weight: 500; padding: 8px 16px; border-radius: 10px; border: none; background: var(--blue); color: #fff; cursor: pointer; white-space: nowrap; flex-shrink: 0; }
+
+    /* Set pills */
+    .sets-pills { display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; }
+    .pill { font-size: 12px; padding: 5px 12px; border-radius: 20px; border: 0.5px solid var(--border); color: var(--text2); background: var(--bg2); }
+    .pill.active { background: var(--green); color: #fff; border-color: var(--green); }
+    .pill.won-a { background: var(--blue); color: #fff; border-color: var(--blue); }
+    .pill.won-b { background: var(--orange); color: #fff; border-color: var(--orange); }
+
+    /* Scoreboard */
+    .board { border-radius: var(--radius); border: 0.5px solid var(--border); overflow: hidden; background: var(--bg); margin-bottom: 10px; }
+    .board-top { display: grid; grid-template-columns: 1fr 52px 1fr; }
+    .team-col { padding: 14px 8px 12px; text-align: center; }
+    .team-col.a { border-right: 0.5px solid var(--border); }
+    .team-col.b { border-left: 0.5px solid var(--border); }
+    .serve-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); margin: 0 auto 5px; visibility: hidden; }
+    .serve-dot.active { visibility: visible; }
+    .tname input { background: transparent; border: none; border-bottom: 0.5px solid var(--border2); color: var(--text); font-size: 14px; font-weight: 500; text-align: center; width: 100%; outline: none; padding: 2px 0; font-family: var(--font); }
+    .tscore { font-size: 68px; font-weight: 500; line-height: 1.1; color: var(--text); margin: 4px 0; }
+    .tscore.tb { font-size: 52px; }
+    .tgames { font-size: 12px; color: var(--text2); }
+    .mid-col { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; color: var(--text2); font-size: 18px; padding: 4px; }
+    .tb-badge { display: none; font-size: 10px; padding: 2px 5px; border-radius: 8px; background: var(--amber); color: #fff; font-weight: 600; letter-spacing: 0.02em; }
+    .tb-badge.show { display: inline-block; }
+
+    .board-sets { display: grid; grid-template-columns: 1fr 52px 1fr; border-top: 0.5px solid var(--border); }
+    .sval { text-align: center; padding: 10px 4px; font-size: 26px; font-weight: 500; color: var(--text); }
+    .sval.a { border-right: 0.5px solid var(--border); }
+    .sval.b { border-left: 0.5px solid var(--border); }
+    .slabel { display: flex; align-items: center; justify-content: center; font-size: 11px; color: var(--text2); }
+
+    /* Status */
+    .status { text-align: center; font-size: 14px; color: var(--text2); margin: 8px 0 10px; min-height: 22px; }
+    .winner { font-size: 17px; font-weight: 500; color: var(--green); }
+    .deuce { font-weight: 500; color: var(--amber); }
+    .gold-pt { font-weight: 500; color: var(--gold); }
+
+    /* Side-swap reminder banner */
+    .swap-banner { display: none; align-items: center; justify-content: space-between; gap: 10px; background: var(--amber); color: #fff; border-radius: var(--radius); padding: 10px 14px; margin-bottom: 10px; font-size: 13px; font-weight: 500; }
+    .swap-banner.show { display: flex; }
+    .btn-swap-now { font-size: 12px; padding: 6px 12px; border-radius: 8px; border: none; background: rgba(255,255,255,0.25); color: #fff; cursor: pointer; white-space: nowrap; flex-shrink: 0; font-weight: 500; }
+
+    /* Point buttons */
+    .btns { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+    .btn-pt { padding: 32px 10px; border-radius: var(--radius); font-size: 18px; font-weight: 500; cursor: pointer; border: none; transition: transform 0.1s; user-select: none; }
+    .btn-pt:active, .btn-pt.flash { transform: scale(0.95); }
+    .btn-pt.a { background: var(--blue); color: #fff; }
+    .btn-pt.b { background: var(--orange); color: #fff; }
+    .btn-pt:disabled { opacity: 0.35; cursor: default; }
+    .btn-pt .sub { font-size: 12px; font-weight: 400; opacity: 0.85; display: block; margin-top: 4px; }
+    .btn-pt .key-hint { font-size: 11px; opacity: 0.6; display: block; margin-top: 6px; font-weight: 400; }
+
+    /* Action buttons */
+    .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+    .actions-row2 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+    .btn-act { padding: 13px 4px; border-radius: 12px; border: 0.5px solid var(--border2); background: var(--bg2); color: var(--text); font-size: 13px; cursor: pointer; text-align: center; }
+    .btn-act.undo { color: var(--orange); border-color: var(--orange); }
+    .btn-act.swap-lados { font-size: 12px; }
+    .btn-act.swap-lados.active { background: var(--blue-light); border-color: var(--blue); color: var(--blue-dark); }
+    .btn-act:active { transform: scale(0.97); }
+
+    /* Bluetooth card */
+    .bt-card { border-radius: var(--radius); border: 0.5px solid var(--border); background: var(--bg); padding: 14px 16px; margin-bottom: 14px; }
+    .bt-row { display: flex; align-items: center; justify-content: space-between; }
+    .bt-left { display: flex; align-items: center; gap: 10px; }
+    .bt-led { width: 9px; height: 9px; border-radius: 50%; background: #ccc; flex-shrink: 0; }
+    .bt-led.on { background: var(--green); animation: blink 1.5s infinite; }
+    .bt-led.connecting { background: var(--amber); animation: blink 0.6s infinite; }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+    .bt-info { font-size: 13px; color: var(--text); }
+    .bt-sub { font-size: 11px; color: var(--text2); margin-top: 2px; }
+    .btn-bt { font-size: 12px; padding: 7px 14px; border-radius: 10px; border: 0.5px solid var(--blue); background: var(--blue-light); color: var(--blue-dark); cursor: pointer; white-space: nowrap; }
+
+    .bt-mapping { margin-top: 12px; padding-top: 12px; border-top: 0.5px solid var(--border); display: none; }
+    .bt-mapping.show { display: block; }
+    .map-title { font-size: 12px; color: var(--text2); margin-bottom: 8px; }
+    .map-rows { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .map-row { background: var(--bg2); border-radius: 10px; padding: 10px; text-align: center; }
+    .map-key { font-size: 20px; font-weight: 500; }
+    .map-row.a .map-key { color: var(--blue); }
+    .map-row.b .map-key { color: var(--orange); }
+    .map-label { font-size: 11px; color: var(--text2); margin-top: 2px; }
+    .sys-note { font-size: 12px; color: var(--text2); margin-top: 10px; padding: 10px 12px; border-radius: 10px; background: var(--bg2); line-height: 1.6; }
+
+    /* History */
+    .history { border-top: 0.5px solid var(--border); padding-top: 12px; }
+    .hist-title { font-size: 12px; color: var(--text2); margin-bottom: 8px; }
+    .hist-row { display: flex; justify-content: space-between; align-items: center; font-size: 13px; color: var(--text2); padding: 7px 0; border-bottom: 0.5px solid var(--border); }
+    .badge { font-size: 11px; padding: 2px 8px; border-radius: 10px; }
+    .ba { background: var(--blue-light); color: var(--blue-dark); }
+    .bb { background: var(--orange-light); color: var(--orange-dark); }
+  </style>
+</head>
+<body>
+<div class="app">
+
+  <div class="top">
+    <div class="top-left">
+      <span class="match-title">Mejor de 3 sets</span>
+      <span class="timer" id="timer">0:00</span>
+    </div>
+    <button class="btn-reset" onclick="resetAll()">Reiniciar</button>
+  </div>
+
+  <div class="option-row">
+    <span>Punto de oro <span style="color:var(--text3);font-size:11px">(sin deuce)</span></span>
+    <button class="toggle" id="toggle-gp" onclick="toggleGoldenPoint()" title="Activar punto de oro"></button>
+  </div>
+
+  <div class="install-banner" id="install-banner">
+    <div class="install-text">
+      Instalá la app
+      <span>Disponible en tu pantalla de inicio</span>
+    </div>
+    <button class="btn-install" id="btn-install">Instalar</button>
+  </div>
+
+  <div class="sets-pills" id="pills"></div>
+
+  <div class="board">
+    <div class="board-top">
+      <div class="team-col a">
+        <div class="serve-dot" id="dotA"></div>
+        <div class="tname"><input id="na" value="Equipo A" maxlength="10" autocomplete="off"/></div>
+        <div class="tscore" id="sa">0</div>
+        <div class="tgames" id="ga">0 games</div>
+      </div>
+      <div class="mid-col">
+        <span>-</span>
+        <span class="tb-badge" id="tb-badge">TB</span>
+      </div>
+      <div class="team-col b">
+        <div class="serve-dot" id="dotB"></div>
+        <div class="tname"><input id="nb" value="Equipo B" maxlength="10" autocomplete="off"/></div>
+        <div class="tscore" id="sb">0</div>
+        <div class="tgames" id="gb">0 games</div>
+      </div>
+    </div>
+    <div class="board-sets">
+      <div class="sval a" id="setsA">0</div>
+      <div class="slabel">sets</div>
+      <div class="sval b" id="setsB">0</div>
+    </div>
+  </div>
+
+  <div class="status" id="status">Sirve Equipo A</div>
+
+  <div class="swap-banner" id="swap-banner">
+    <span>Cambio de lados</span>
+    <button class="btn-swap-now" onclick="swapSides()">Swap Lados</button>
+  </div>
+
+  <div class="btns">
+    <button class="btn-pt a" id="btnA" onclick="addPoint('a')">
+      +1 punto
+      <span class="sub" id="lbA">Equipo A</span>
+      <span class="key-hint" id="hintA">Tecla: —</span>
+    </button>
+    <button class="btn-pt b" id="btnB" onclick="addPoint('b')">
+      +1 punto
+      <span class="sub" id="lbB">Equipo B</span>
+      <span class="key-hint" id="hintB">Tecla: —</span>
+    </button>
+  </div>
+
+  <div class="actions">
+    <button class="btn-act undo" onclick="undo()">↩ Deshacer</button>
+    <button class="btn-act swap-lados" id="btn-swap-lados" onclick="swapSides()">⇄ Swap Lados</button>
+  </div>
+  <div class="actions-row2">
+    <button class="btn-act" onclick="swapServe()">Servicio ⇄</button>
+    <button class="btn-act" onclick="newSet()">Nuevo set</button>
+    <button class="btn-act" onclick="resetAll()">Reiniciar</button>
+  </div>
+
+  <div class="bt-card">
+    <div class="bt-row">
+      <div class="bt-left">
+        <div class="bt-led" id="btled"></div>
+        <div>
+          <div class="bt-info" id="bt-info">Control Bluetooth HID</div>
+          <div class="bt-sub" id="bt-sub">Funciona en Android e iOS</div>
+        </div>
+      </div>
+      <button class="btn-bt" id="btn-bt" onclick="setupBT()">Configurar</button>
+    </div>
+    <div class="bt-mapping" id="bt-mapping">
+      <div class="map-title">Presioná cada botón en tu control:</div>
+      <div class="map-rows">
+        <div class="map-row a">
+          <div class="map-key" id="mk-a">?</div>
+          <div class="map-label" id="ml-a">Botón lado izquierdo</div>
+        </div>
+        <div class="map-row b">
+          <div class="map-key" id="mk-b">?</div>
+          <div class="map-label" id="ml-b">Botón lado derecho</div>
+        </div>
+      </div>
+      <div class="sys-note" id="sys-note"></div>
+    </div>
+  </div>
+
+  <div id="hist-section" style="display:none">
+    <div class="history">
+      <div class="hist-title">Historial de sets</div>
+      <div id="hist-list"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js');
+}
+
+// PWA install prompt
+let deferredPrompt = null;
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  deferredPrompt = e;
+  document.getElementById('install-banner').classList.add('show');
+});
+document.getElementById('btn-install').addEventListener('click', () => {
+  if (deferredPrompt) {
+    deferredPrompt.prompt();
+    deferredPrompt.userChoice.then(() => {
+      deferredPrompt = null;
+      document.getElementById('install-banner').classList.remove('show');
+    });
+  }
+});
+window.addEventListener('appinstalled', () => {
+  document.getElementById('install-banner').classList.remove('show');
+});
+
+// ─── Constants ────────────────────────────────────────────────────────────────
+const PTS = ['0', '15', '30', '40'];
+const STORAGE_KEY = 'padel_state_v2';
+
+// ─── State ────────────────────────────────────────────────────────────────────
+function fresh() {
+  return {
+    pA: 0, pB: 0,
+    gA: 0, gB: 0,
+    sA: 0, sB: 0,
+    sets: [],
+    serve: 'a',
+    deuce: false,
+    tiebreak: false,
+    tbServeCount: 0,
+    over: false,
+    goldenPoint: false,
+    sides: 'normal',
+    btKeyA: null,
+    btKeyB: null,
+    startTime: null,
+    sideSwapReminder: false,
+    nameA: 'Equipo A',
+    nameB: 'Equipo B',
+  };
+}
+
+let S = fresh();
+let prev = null;
+let btPhase = null;
+let timerInterval = null;
+
+// ─── Persistence ──────────────────────────────────────────────────────────────
+function saveState() {
+  S.nameA = document.getElementById('na').value || 'Equipo A';
+  S.nameB = document.getElementById('nb').value || 'Equipo B';
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(S)); } catch(e) {}
+}
+
+function loadState() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return;
+    const saved = JSON.parse(raw);
+    S = Object.assign(fresh(), saved);
+    document.getElementById('na').value = S.nameA;
+    document.getElementById('nb').value = S.nameB;
+  } catch(e) {}
+}
+
+// ─── Timer ────────────────────────────────────────────────────────────────────
+function startTimer() {
+  if (timerInterval) return;
+  timerInterval = setInterval(renderTimer, 1000);
+}
+
+function renderTimer() {
+  if (!S.startTime) { document.getElementById('timer').textContent = '0:00'; return; }
+  const ms = Date.now() - new Date(S.startTime).getTime();
+  const totalSec = Math.floor(ms / 1000);
+  const mins = Math.floor(totalSec / 60);
+  const secs = totalSec % 60;
+  document.getElementById('timer').textContent = mins + ':' + String(secs).padStart(2, '0');
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+function nameA() { return document.getElementById('na').value || 'Equipo A'; }
+function nameB() { return document.getElementById('nb').value || 'Equipo B'; }
+
+function displayKey(k) {
+  if (!k) return '—';
+  if (k.startsWith('Key')) return k.replace('Key', '');
+  if (k.startsWith('Digit')) return k.replace('Digit', '');
+  const map = { ArrowLeft:'←', ArrowRight:'→', ArrowUp:'↑', ArrowDown:'↓', Enter:'↵', Space:'Esp', Backspace:'⌫' };
+  return map[k] || k.slice(0, 5);
+}
+
+function flashBtn(id) {
+  const b = document.getElementById(id);
+  b.classList.add('flash');
+  setTimeout(() => b.classList.remove('flash'), 150);
+}
+
+function canToggleOptions() {
+  return S.gA === 0 && S.gB === 0 && S.sA === 0 && S.sB === 0 && S.pA === 0 && S.pB === 0;
+}
+
+// ─── Render ───────────────────────────────────────────────────────────────────
+function render() {
+  const tb = S.tiebreak;
+  const nA = nameA(), nB = nameB();
+
+  // Point scores
+  let lA, lB;
+  if (tb) {
+    lA = String(S.pA);
+    lB = String(S.pB);
+  } else if (S.deuce) {
+    lA = S.pA > S.pB ? 'ADV' : '40';
+    lB = S.pB > S.pA ? 'ADV' : '40';
+  } else {
+    lA = PTS[Math.min(S.pA, 3)];
+    lB = PTS[Math.min(S.pB, 3)];
+  }
+
+  const saEl = document.getElementById('sa');
+  const sbEl = document.getElementById('sb');
+  saEl.textContent = lA;
+  sbEl.textContent = lB;
+  saEl.className = 'tscore' + (tb ? ' tb' : '');
+  sbEl.className = 'tscore' + (tb ? ' tb' : '');
+
+  document.getElementById('ga').textContent = S.gA + (S.gA === 1 ? ' game' : ' games');
+  document.getElementById('gb').textContent = S.gB + (S.gB === 1 ? ' game' : ' games');
+  document.getElementById('setsA').textContent = S.sA;
+  document.getElementById('setsB').textContent = S.sB;
+
+  // Serve dots
+  document.getElementById('dotA').className = 'serve-dot' + (S.serve === 'a' ? ' active' : '');
+  document.getElementById('dotB').className = 'serve-dot' + (S.serve === 'b' ? ' active' : '');
+
+  // Tiebreak badge
+  document.getElementById('tb-badge').className = 'tb-badge' + (tb ? ' show' : '');
+
+  // Button labels and key hints
+  document.getElementById('lbA').textContent = nA;
+  document.getElementById('lbB').textContent = nB;
+
+  const hintA = S.btKeyA ? ('Tecla: ' + displayKey(S.btKeyA)) : 'Tecla: —';
+  const hintB = S.btKeyB ? ('Tecla: ' + displayKey(S.btKeyB)) : 'Tecla: —';
+  if (S.sides === 'swapped') {
+    document.getElementById('hintA').textContent = hintB;
+    document.getElementById('hintB').textContent = hintA;
+  } else {
+    document.getElementById('hintA').textContent = hintA;
+    document.getElementById('hintB').textContent = hintB;
+  }
+
+  // Status line
+  const st = document.getElementById('status');
+  if (S.over) {
+    const winner = S.sA >= 2 ? nA : nB;
+    st.innerHTML = '<span class="winner">Ganador: ' + winner + '</span>';
+  } else if (tb) {
+    const tbServer = S.serve === 'a' ? nA : nB;
+    st.innerHTML = '<span class="deuce">Tiebreak — Sirve ' + tbServer + '</span>';
+  } else if (S.deuce) {
+    st.innerHTML = '<span class="deuce">Deuce!</span>';
+  } else if (S.goldenPoint && S.pA === 3 && S.pB === 3) {
+    st.innerHTML = '<span class="gold-pt">Punto de Oro</span>';
+  } else {
+    st.textContent = 'Sirve ' + (S.serve === 'a' ? nA : nB);
+  }
+
+  // Side swap reminder banner
+  document.getElementById('swap-banner').className = 'swap-banner' + (S.sideSwapReminder ? ' show' : '');
+
+  // Swap lados button highlight
+  document.getElementById('btn-swap-lados').className =
+    'btn-act swap-lados' + (S.sides === 'swapped' ? ' active' : '');
+
+  // Disable point buttons if match over
+  document.getElementById('btnA').disabled = S.over;
+  document.getElementById('btnB').disabled = S.over;
+
+  // Golden point toggle
+  const gpBtn = document.getElementById('toggle-gp');
+  gpBtn.className = 'toggle' + (S.goldenPoint ? ' on' : '');
+  gpBtn.disabled = !canToggleOptions();
+
+  // Set pills
+  const pills = document.getElementById('pills');
+  pills.innerHTML = '';
+  const totalSets = Math.max(S.sA + S.sB + 1, S.sets.length + 1);
+  const numPills = Math.min(totalSets, 3);
+  for (let i = 0; i < numPills; i++) {
+    const d = document.createElement('div');
+    if (i < S.sets.length) {
+      const x = S.sets[i];
+      d.className = 'pill ' + (x.a > x.b ? 'won-a' : 'won-b');
+      d.textContent = 'Set ' + (i + 1) + ': ' + x.a + '-' + x.b;
+    } else if (i === S.sets.length) {
+      d.className = 'pill active';
+      d.textContent = 'Set ' + (i + 1) + (tb ? ' (TB)' : ' (en curso)');
+    } else {
+      d.className = 'pill';
+      d.textContent = 'Set ' + (i + 1);
+    }
+    pills.appendChild(d);
+  }
+
+  // History
+  const hs = document.getElementById('hist-section');
+  if (S.sets.length > 0) {
+    hs.style.display = 'block';
+    document.getElementById('hist-list').innerHTML = S.sets.map((x, i) => {
+      const w = x.a > x.b
+        ? '<span class="badge ba">' + nA + '</span>'
+        : '<span class="badge bb">' + nB + '</span>';
+      return '<div class="hist-row"><span>Set ' + (i + 1) + '</span><span>' + x.a + ' — ' + x.b + ' ' + w + '</span></div>';
+    }).join('');
+  } else {
+    hs.style.display = 'none';
+  }
+
+  // BT mapping labels reflect current sides
+  if (btPhase === null && (S.btKeyA || S.btKeyB)) {
+    const leftKey = displayKey(S.btKeyA);
+    const rightKey = displayKey(S.btKeyB);
+    const leftTeam = S.sides === 'normal' ? nA : nB;
+    const rightTeam = S.sides === 'normal' ? nB : nA;
+    document.getElementById('bt-sub').textContent =
+      leftKey + ' = ' + leftTeam + '   |   ' + rightKey + ' = ' + rightTeam;
+  }
+
+  // BT LED state (restore on render if keys are loaded)
+  if (!btPhase && S.btKeyA && S.btKeyB && document.getElementById('btled').className === 'bt-led') {
+    document.getElementById('btled').className = 'bt-led on';
+    document.getElementById('bt-info').textContent = 'Control conectado';
+    document.getElementById('btn-bt').textContent = 'Reconfigurar';
+    document.getElementById('btn-bt').onclick = setupBT;
+  }
+
+  saveState();
+}
+
+// ─── Scoring ──────────────────────────────────────────────────────────────────
+function addPoint(team) {
+  if (S.over) return;
+  prev = JSON.parse(JSON.stringify(S));
+
+  if (!S.startTime) {
+    S.startTime = new Date().toISOString();
+    startTimer();
+  }
+
+  if (S.tiebreak) {
+    addTbPoint(team);
+    return;
+  }
+
+  if (team === 'a') S.pA++; else S.pB++;
+  const a = S.pA, b = S.pB;
+
+  if (S.goldenPoint) {
+    // At 40-40 (pA=3, pB=3): next point wins — so when one reaches 4 from 3-3:
+    if (a >= 3 && b >= 3 && a !== b) {
+      winGame(a > b ? 'a' : 'b');
+      return;
+    } else if (a >= 4) { winGame('a'); return; }
+    else if (b >= 4) { winGame('b'); return; }
+  } else {
+    if (a >= 3 && b >= 3) {
+      S.deuce = true;
+      if (Math.abs(a - b) >= 2) { winGame(a > b ? 'a' : 'b'); return; }
+    } else if (a >= 4) { winGame('a'); return; }
+    else if (b >= 4) { winGame('b'); return; }
+  }
+
+  render();
+}
+
+function addTbPoint(team) {
+  if (team === 'a') S.pA++; else S.pB++;
+  S.tbServeCount++;
+  // Serve changes after 1st point, then every 2 points (at odd tbServeCount)
+  if (S.tbServeCount % 2 === 1) {
+    S.serve = S.serve === 'a' ? 'b' : 'a';
+  }
+  const a = S.pA, b = S.pB;
+  if ((a >= 7 || b >= 7) && Math.abs(a - b) >= 2) {
+    winGame(a > b ? 'a' : 'b');
+    return;
+  }
+  render();
+}
+
+function winGame(team) {
+  if (team === 'a') S.gA++; else S.gB++;
+  S.pA = 0; S.pB = 0;
+  S.deuce = false; S.tiebreak = false; S.tbServeCount = 0;
+  S.serve = S.serve === 'a' ? 'b' : 'a';
+  checkSetWin();
+}
+
+function checkSetWin() {
+  const a = S.gA, b = S.gB;
+  if (a === 6 && b === 6) {
+    S.tiebreak = true;
+    S.tbServeCount = 0;
+    render();
+    return;
+  }
+  if (a >= 6 && a - b >= 2) { winSet('a'); return; }
+  if (b >= 6 && b - a >= 2) { winSet('b'); return; }
+  render();
+}
+
+function winSet(team) {
+  S.sets.push({ a: S.gA, b: S.gB });
+  if (team === 'a') S.sA++; else S.sB++;
+  S.gA = 0; S.gB = 0;
+  // Prompt side swap after set 1 (and set 3 is handled the same way)
+  S.sideSwapReminder = true;
+  if (S.sA >= 2 || S.sB >= 2) {
+    S.over = true;
+    S.sideSwapReminder = false;
+  }
+  render();
+}
+
+// ─── Match Controls ───────────────────────────────────────────────────────────
+function undo() {
+  if (prev) { S = prev; prev = null; render(); }
+}
+
+function swapSides() {
+  prev = JSON.parse(JSON.stringify(S));
+  S.sides = S.sides === 'normal' ? 'swapped' : 'normal';
+  S.sideSwapReminder = false;
+  render();
+}
+
+function swapServe() {
+  prev = JSON.parse(JSON.stringify(S));
+  S.serve = S.serve === 'a' ? 'b' : 'a';
+  render();
+}
+
+function newSet() {
+  prev = JSON.parse(JSON.stringify(S));
+  S.pA = 0; S.pB = 0; S.gA = 0; S.gB = 0;
+  S.deuce = false; S.tiebreak = false; S.tbServeCount = 0;
+  render();
+}
+
+function resetAll() {
+  if (!confirm('¿Reiniciar el partido completo?')) return;
+  const btKeyA = S.btKeyA;
+  const btKeyB = S.btKeyB;
+  const sides = S.sides;
+  const goldenPoint = S.goldenPoint;
+  S = fresh();
+  // Keep BT keys and golden point preference across reset
+  S.btKeyA = btKeyA;
+  S.btKeyB = btKeyB;
+  S.sides = sides;
+  S.goldenPoint = goldenPoint;
+  prev = null;
+  try { localStorage.removeItem(STORAGE_KEY); } catch(e) {}
+  document.getElementById('na').value = 'Equipo A';
+  document.getElementById('nb').value = 'Equipo B';
+  render();
+  saveState();
+}
+
+function toggleGoldenPoint() {
+  if (!canToggleOptions()) return;
+  prev = JSON.parse(JSON.stringify(S));
+  S.goldenPoint = !S.goldenPoint;
+  render();
+}
+
+// ─── Bluetooth HID ────────────────────────────────────────────────────────────
+function setupBT() {
+  const mapping = document.getElementById('bt-mapping');
+  mapping.classList.add('show');
+  btPhase = 'waitA';
+  S.btKeyA = null; S.btKeyB = null;
+  document.getElementById('mk-a').textContent = '?';
+  document.getElementById('mk-b').textContent = '?';
+  document.getElementById('ml-a').textContent = 'Presioná botón lado izquierdo';
+  document.getElementById('ml-b').textContent = 'Esperando...';
+  document.getElementById('btled').className = 'bt-led connecting';
+  document.getElementById('bt-info').textContent = 'Esperando botón izquierdo...';
+  document.getElementById('bt-sub').textContent = 'Presioná el botón del lado izquierdo de la cancha';
+  document.getElementById('btn-bt').textContent = 'Cancelar';
+  document.getElementById('btn-bt').onclick = cancelBT;
+
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  document.getElementById('sys-note').textContent = isIOS
+    ? 'iPhone: Conectá el control en Ajustes → Bluetooth, luego volvé aquí y presioná cada botón.'
+    : 'Android: Conectá el control en Ajustes → Bluetooth, luego presioná cada botón aquí.';
+}
+
+function cancelBT() {
+  btPhase = null;
+  document.getElementById('bt-mapping').classList.remove('show');
+  document.getElementById('btled').className = 'bt-led' + (S.btKeyA && S.btKeyB ? ' on' : '');
+  document.getElementById('bt-info').textContent = S.btKeyA && S.btKeyB ? 'Control conectado' : 'Control Bluetooth HID';
+  document.getElementById('bt-sub').textContent = S.btKeyA && S.btKeyB
+    ? displayKey(S.btKeyA) + ' = Izq   |   ' + displayKey(S.btKeyB) + ' = Der'
+    : 'Funciona en Android e iOS';
+  document.getElementById('btn-bt').textContent = S.btKeyA && S.btKeyB ? 'Reconfigurar' : 'Configurar';
+  document.getElementById('btn-bt').onclick = setupBT;
+}
+
+// ─── Keyboard / BT handler ────────────────────────────────────────────────────
+document.addEventListener('keydown', function(e) {
+  if (['F5', 'F11', 'F12', 'Tab'].includes(e.key)) return;
+  e.preventDefault();
+
+  if (btPhase === 'waitA') {
+    S.btKeyA = e.code;
+    document.getElementById('mk-a').textContent = displayKey(e.code);
+    document.getElementById('ml-a').textContent = 'Izq: ' + displayKey(e.code);
+    btPhase = 'waitB';
+    document.getElementById('ml-b').textContent = 'Presioná botón lado derecho';
+    document.getElementById('bt-info').textContent = 'Esperando botón derecho...';
+    document.getElementById('bt-sub').textContent = 'Presioná el botón del lado derecho de la cancha';
+    flashBtn('btnA');
+    return;
+  }
+
+  if (btPhase === 'waitB') {
+    if (e.code === S.btKeyA) return;
+    S.btKeyB = e.code;
+    document.getElementById('mk-b').textContent = displayKey(e.code);
+    document.getElementById('ml-b').textContent = 'Der: ' + displayKey(e.code);
+    btPhase = null;
+    document.getElementById('btled').className = 'bt-led on';
+    document.getElementById('bt-info').textContent = 'Control conectado';
+    document.getElementById('btn-bt').textContent = 'Reconfigurar';
+    document.getElementById('btn-bt').onclick = setupBT;
+    flashBtn('btnB');
+    render();
+    return;
+  }
+
+  if (S.btKeyA && e.code === S.btKeyA) {
+    const team = S.sides === 'normal' ? 'a' : 'b';
+    addPoint(team);
+    flashBtn(team === 'a' ? 'btnA' : 'btnB');
+  } else if (S.btKeyB && e.code === S.btKeyB) {
+    const team = S.sides === 'normal' ? 'b' : 'a';
+    addPoint(team);
+    flashBtn(team === 'b' ? 'btnB' : 'btnA');
+  }
+});
+
+// ─── Name inputs ──────────────────────────────────────────────────────────────
+document.getElementById('na').addEventListener('input', render);
+document.getElementById('nb').addEventListener('input', render);
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+loadState();
+if (S.startTime && !S.over) startTimer();
+render();
+renderTimer();
+</script>
+</body>
+</html>
